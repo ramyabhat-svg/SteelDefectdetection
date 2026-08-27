@@ -129,7 +129,3 @@ there's nothing else to start.
 | UI doesn't load, only the API works | `FRONTEND_DIR` doesn't point at the folder containing `index.html`. |
 | Slow first prediction | Ultralytics fuses/warms up the model on its first call; later predictions are faster. |
 
-## 📄 License
-
-Add a license of your choice (MIT is a common default for portfolio
-projects) — see [choosealicense.com](https://choosealicense.com/).
