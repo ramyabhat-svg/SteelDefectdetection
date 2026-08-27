@@ -21,10 +21,6 @@ single command to run.
 - **Live health indicator** — the UI polls the backend and shows
   connected/disconnected status in real time
 
-## 🖼️ Preview
-
-*(add a screenshot or GIF of the app here — drop it in the repo and
-reference it, e.g. `![preview](docs/preview.png)`)*
 
 ## 🧱 Tech Stack
 
