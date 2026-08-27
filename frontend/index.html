@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Steel Defect Inspector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --graphite:#121316;
+    --plate:#1b1d21;
+    --plate-2:#202327;
+    --steel-line:#2c3036;
+    --chalk:#ece9e2;
+    --chalk-dim:#8a8f96;
+    --hazard:#ffb400;
+    --hazard-dim:#7a5d12;
+    --alert:#e2453c;
+    --alert-dim:#5a211d;
+    --radius:10px;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(255,180,0,0.05), transparent 60%),
+      var(--graphite);
+    color:var(--chalk);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:28px 24px 60px; }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    border-bottom:1px solid var(--steel-line);
+    padding-bottom:18px;
+    margin-bottom:28px;
+    flex-wrap:wrap;
+    gap:14px;
+  }
+  header h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:28px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    margin:0 0 4px;
+  }
+  header p{
+    margin:0;
+    color:var(--chalk-dim);
+    font-size:13.5px;
+  }
+  .status{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--chalk-dim);
+    padding:7px 12px;
+    border:1px solid var(--steel-line);
+    border-radius:999px;
+    background:var(--plate);
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--chalk-dim); flex-shrink:0; }
+  .dot.ok{ background:#4ade80; box-shadow:0 0 6px #4ade8099; }
+  .dot.bad{ background:var(--alert); box-shadow:0 0 6px var(--alert); }
+
+  /* ---------- drop zone ---------- */
+  .dropzone{
+    position:relative;
+    border:1.5px dashed var(--steel-line);
+    border-radius:var(--radius);
+    background:
+      repeating-linear-gradient(135deg, rgba(255,180,0,0.035) 0 14px, transparent 14px 28px),
+      var(--plate);
+    padding:70px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--hazard);
+  }
+  .dropzone svg{ opacity:.55; margin-bottom:14px; }
+  .dropzone .lead{
+    font-family:'Oswald', sans-serif;
+    font-size:18px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .dropzone .sub{ color:var(--chalk-dim); font-size:13px; }
+  .dropzone .sub b{ color:var(--hazard); font-weight:600; }
+  #file-input{ display:none; }
+
+  .dz-error{
+    margin-top:14px;
+    border:1px solid var(--alert-dim);
+    background:rgba(226,69,60,0.08);
+    color:#ffb3ad;
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:13px;
+    font-family:'IBM Plex Mono', monospace;
+    display:none;
+  }
+
+  /* ---------- results layout ---------- */
+  .results{ display:none; gap:22px; grid-template-columns:1.4fr 1fr; align-items:start; }
+  @media (max-width:840px){ .results{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--plate);
+    border:1px solid var(--steel-line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+
+  .image-panel .panel-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 16px; border-bottom:1px solid var(--steel-line);
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--chalk-dim);
+  }
+  .image-panel .panel-head button{
+    background:none; border:1px solid var(--steel-line); color:var(--chalk-dim);
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; padding:5px 10px;
+    border-radius:6px; cursor:pointer;
+  }
+  .image-panel .panel-head button:hover{ border-color:var(--hazard); color:var(--hazard); }
+  .canvas-wrap{ position:relative; background:#000; line-height:0; }
+  .canvas-wrap canvas{ width:100%; height:auto; display:block; }
+
+  /* ---------- inspection tag ---------- */
+  .tag{
+    background:
+      radial-gradient(circle, var(--graphite) 4px, transparent 4.5px) repeat-x,
+      var(--plate);
+    background-size:16px 100%, auto;
+    background-position:0 -8px, 0 0;
+    padding:22px 20px 18px;
+  }
+  .tag-id{ font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--chalk-dim); margin-bottom:16px; }
+  .tag-id .v{ color:var(--chalk); }
+
+  .tag-total{
+    display:flex; align-items:baseline; gap:10px; margin-bottom:18px;
+  }
+  .tag-total .num{ font-family:'Oswald', sans-serif; font-size:42px; font-weight:700; line-height:1; }
+  .tag-total .lbl{ color:var(--chalk-dim); font-size:13px; }
+
+  .defect-list{ display:flex; flex-direction:column; gap:8px; margin-bottom:6px; }
+  .defect-row{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 10px;
+    border:1px solid var(--steel-line);
+    border-radius:7px;
+    background:var(--plate-2);
+    cursor:pointer;
+    transition:border-color .12s ease, transform .12s ease;
+  }
+  .defect-row:hover{ border-color:var(--hazard-dim); }
+  .defect-row.active{ border-color:var(--hazard); }
+  .swatch{ width:11px; height:11px; border-radius:3px; flex-shrink:0; }
+  .defect-row .name{ flex:1; font-size:13.5px; text-transform:capitalize; }
+  .defect-row .count{ font-family:'IBM Plex Mono', monospace; color:var(--hazard); font-size:12.5px; }
+
+  .empty-note{
+    color:var(--chalk-dim);
+    font-size:13.5px;
+    border:1px solid var(--steel-line);
+    border-radius:7px;
+    padding:16px;
+    background:var(--plate-2);
+  }
+
+  .rescan{
+    margin-top:18px;
+    width:100%;
+    background:none;
+    border:1px solid var(--steel-line);
+    color:var(--chalk-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:10px;
+    border-radius:7px;
+    cursor:pointer;
+    letter-spacing:.04em;
+  }
+  .rescan:hover{ border-color:var(--hazard); color:var(--hazard); }
+
+  footer{
+    margin-top:34px;
+    color:var(--chalk-dim);
+    font-size:11.5px;
+    font-family:'IBM Plex Mono', monospace;
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Steel Defect Inspector</h1>
+      <p>Drop a surface image to scan it against your trained model.</p>
+    </div>
+    <div class="status" id="status">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">checking server…</span>
+    </div>
+  </header>
+
+  <div id="dropzone" class="dropzone">
+    <input id="file-input" type="file" accept="image/*" />
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ffb400" stroke-width="1.4">
+      <rect x="3" y="3" width="18" height="18" rx="2"/>
+      <circle cx="8.5" cy="8.5" r="1.6"/>
+      <path d="M21 15l-5-5L5 21"/>
+    </svg>
+    <div class="lead">Drop steel surface image</div>
+    <div class="sub">or click to browse &nbsp;·&nbsp; <b>JPG / PNG</b></div>
+    <div class="dz-error" id="dz-error"></div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="panel image-panel">
+      <div class="panel-head">
+        <span id="img-meta">—</span>
+        <button id="reset-btn">clear</button>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="tag">
+        <div class="tag-id">
+          BATCH <span class="v" id="batch-id">—</span><br/>
+          <span id="scan-time">—</span>
+        </div>
+
+        <div class="tag-total">
+          <div class="num" id="total-defects">0</div>
+          <div class="lbl">defects found</div>
+        </div>
+
+        <div class="defect-list" id="defect-list"></div>
+        <div class="empty-note" id="empty-note" style="display:none;">
+          Surface clear — no defects detected.
+        </div>
+
+        <button class="rescan" id="rescan-btn">scan another image</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>local inference · nothing leaves this machine</footer>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000'; // points at the FastAPI backend explicitly
+
+const els = {
+  dropzone: document.getElementById('dropzone'),
+  fileInput: document.getElementById('file-input'),
+  dzError: document.getElementById('dz-error'),
+  results: document.getElementById('results'),
+  canvas: document.getElementById('canvas'),
+  imgMeta: document.getElementById('img-meta'),
+  resetBtn: document.getElementById('reset-btn'),
+  rescanBtn: document.getElementById('rescan-btn'),
+  batchId: document.getElementById('batch-id'),
+  scanTime: document.getElementById('scan-time'),
+  totalDefects: document.getElementById('total-defects'),
+  defectList: document.getElementById('defect-list'),
+  emptyNote: document.getElementById('empty-note'),
+  statusDot: document.getElementById('status-dot'),
+  statusText: document.getElementById('status-text'),
+};
+
+const PALETTE = ['#ffb400', '#e2453c', '#4ade80', '#60a5fa', '#c084fc', '#fb923c', '#2dd4bf', '#f472b6'];
+const classColors = new Map();
+function colorFor(className){
+  if(!classColors.has(className)){
+    classColors.set(className, PALETTE[classColors.size % PALETTE.length]);
+  }
+  return classColors.get(className);
+}
+
+let currentImage = null;   // HTMLImageElement
+let currentResult = null;  // raw API response
+let activeClass = null;    // class name highlighted, or null
+
+// ---------- server status ----------
+async function checkHealth(){
+  try{
+    const res = await fetch(`${API_BASE}/api/health`);
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    els.statusDot.className = 'dot ok';
+    els.statusText.textContent = `server ready · ${data.classes.length} classes`;
+  }catch(e){
+    els.statusDot.className = 'dot bad';
+    els.statusText.textContent = 'server unreachable';
+  }
+}
+checkHealth();
+setInterval(checkHealth, 15000);
+
+// ---------- drop zone wiring ----------
+els.dropzone.addEventListener('click', () => els.fileInput.click());
+els.fileInput.addEventListener('change', e => {
+  if(e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+['dragenter','dragover'].forEach(evt =>
+  els.dropzone.addEventListener(evt, e => {
+    e.preventDefault();
+    els.dropzone.classList.add('drag');
+  })
+);
+['dragleave','drop'].forEach(evt =>
+  els.dropzone.addEventListener(evt, e => {
+    e.preventDefault();
+    els.dropzone.classList.remove('drag');
+  })
+);
+els.dropzone.addEventListener('drop', e => {
+  const file = e.dataTransfer.files[0];
+  if(file) handleFile(file);
+});
+
+function showDzError(msg){
+  els.dzError.textContent = msg;
+  els.dzError.style.display = 'block';
+}
+function clearDzError(){
+  els.dzError.style.display = 'none';
+}
+
+// ---------- main flow ----------
+async function handleFile(file){
+  clearDzError();
+  if(!file.type.startsWith('image/')){
+    showDzError('That is not an image file — try a JPG or PNG.');
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = async () => {
+    currentImage = img;
+    await runInference(file);
+    URL.revokeObjectURL(objectUrl);
+  };
+  img.onerror = () => showDzError('Could not load that image.');
+  img.src = objectUrl;
+}
+
+async function runInference(file){
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const leadEl = els.dropzone.querySelector('.lead');
+  leadEl.textContent = 'Scanning…';
+
+  try{
+    const res = await fetch(`${API_BASE}/api/predict`, { method: 'POST', body: formData });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server returned ${res.status}`);
+    }
+    currentResult = await res.json();
+    activeClass = null;
+    showResults();
+  }catch(e){
+    showDzError(`Inference failed: ${e.message}. Is the backend running?`);
+  }finally{
+    leadEl.textContent = 'Drop steel surface image';
+  }
+}
+
+// Minimum confidence a detection needs to be shown. There's no slider for
+// this anymore — adjust the number below if you want a stricter/looser cut.
+const DISPLAY_THRESHOLD = 0.25;
+
+function filteredDetections(){
+  return (currentResult && currentResult.detections ? currentResult.detections : [])
+    .filter(d => d.confidence >= DISPLAY_THRESHOLD);
+}
+
+function showResults(){
+  els.results.style.display = 'grid';
+  els.imgMeta.textContent =
+    `${currentResult.image_width}×${currentResult.image_height}px · ${currentResult.inference_ms}ms`;
+
+  els.batchId.textContent = 'SDX-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  els.scanTime.textContent = new Date().toLocaleString();
+
+  render();
+}
+
+function render(){
+  drawCanvas();
+  renderTag();
+}
+
+function drawCanvas(){
+  const canvas = els.canvas;
+  const ctx = canvas.getContext('2d');
+  canvas.width = currentImage.naturalWidth;
+  canvas.height = currentImage.naturalHeight;
+  ctx.drawImage(currentImage, 0, 0);
+
+  const dets = filteredDetections();
+  const lineWidth = Math.max(2, canvas.width / 400);
+
+  dets.forEach(d => {
+    const [x1, y1, x2, y2] = d.bbox;
+    const color = colorFor(d.class_name);
+    const isActive = activeClass === d.class_name;
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isActive ? lineWidth * 2 : lineWidth;
+    ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+    const label = d.class_name.replace(/_/g, ' ');
+    ctx.font = `${Math.max(12, canvas.width / 70)}px IBM Plex Mono, monospace`;
+    const padding = 4;
+    const textW = ctx.measureText(label).width;
+    const textH = Math.max(14, canvas.width / 55);
+    const labelX = Math.min(Math.max(0, x1), canvas.width - textW - padding * 2);
+    const labelY = Math.max(0, y1 - textH);
+
+    ctx.fillStyle = color;
+    ctx.fillRect(labelX, labelY, textW + padding * 2, textH);
+    ctx.fillStyle = '#121316';
+    ctx.fillText(label, labelX + padding, labelY + textH - 4);
+  });
+}
+
+function renderTag(){
+  const dets = filteredDetections();
+  els.totalDefects.textContent = dets.length;
+
+  const byClass = new Map();
+  dets.forEach(d => {
+    if(!byClass.has(d.class_name)) byClass.set(d.class_name, 0);
+    byClass.set(d.class_name, byClass.get(d.class_name) + 1);
+  });
+
+  els.defectList.innerHTML = '';
+  if(byClass.size === 0){
+    els.emptyNote.style.display = 'block';
+  }else{
+    els.emptyNote.style.display = 'none';
+    [...byClass.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .forEach(([className, count]) => {
+        const row = document.createElement('div');
+        row.className = 'defect-row' + (activeClass === className ? ' active' : '');
+        row.innerHTML = `
+          <span class="swatch" style="background:${colorFor(className)}"></span>
+          <span class="name">${className.replace(/_/g, ' ')}</span>
+          <span class="count">×${count}</span>
+        `;
+        row.addEventListener('click', () => {
+          activeClass = activeClass === className ? null : className;
+          render();
+        });
+        els.defectList.appendChild(row);
+      });
+  }
+}
+
+function resetAll(){
+  currentImage = null;
+  currentResult = null;
+  activeClass = null;
+  els.results.style.display = 'none';
+  els.fileInput.value = '';
+  clearDzError();
+}
+els.resetBtn.addEventListener('click', resetAll);
+els.rescanBtn.addEventListener('click', resetAll);
+</script>
+</body>
+</html>
